@@ -16,6 +16,17 @@ interface Message {
   } | null;
 }
 
+interface GroupedMessage {
+  userId: string;
+  username: string;
+  avatar_url: string;
+  messages: {
+    id: string;
+    content: string;
+    created_at: string;
+  }[];
+}
+
 export default function Channel() {
   const { id } = useParams();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -119,27 +130,61 @@ export default function Channel() {
     setNewMessage("");
   };
 
+  // Group messages by user
+  const groupedMessages = messages.reduce<GroupedMessage[]>((acc, message) => {
+    if (!message.user) return acc;
+
+    const lastGroup = acc[acc.length - 1];
+    
+    if (lastGroup && lastGroup.username === message.user.username) {
+      lastGroup.messages.push({
+        id: message.id,
+        content: message.content,
+        created_at: message.created_at,
+      });
+    } else {
+      acc.push({
+        userId: message.user.username,
+        username: message.user.username,
+        avatar_url: message.user.avatar_url,
+        messages: [{
+          id: message.id,
+          content: message.content,
+          created_at: message.created_at,
+        }]
+      });
+    }
+    
+    return acc;
+  }, []);
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="bg-white rounded-lg shadow-sm border p-4 mb-4 h-[600px] overflow-y-auto">
-        {messages.map((message) => (
-          <div key={message.id} className="mb-4">
+        {groupedMessages.map((group) => (
+          <div key={`${group.userId}-${group.messages[0].id}`} className="mb-6">
             <div className="flex items-start gap-3">
-              <Avatar>
+              <Avatar className="mt-1">
                 <AvatarImage 
-                  src={message.user?.avatar_url || '/placeholder.svg'} 
-                  alt={message.user?.username || 'Unknown user'} 
+                  src={group.avatar_url || '/placeholder.svg'} 
+                  alt={group.username} 
                 />
                 <AvatarFallback>
-                  {message.user?.username?.[0]?.toUpperCase() || '?'}
+                  {group.username[0]?.toUpperCase() || '?'}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <p className="font-semibold">{message.user?.username || 'Unknown user'}</p>
-                <p className="text-gray-700">{message.content}</p>
-                <p className="text-xs text-gray-500">
-                  {new Date(message.created_at).toLocaleString()}
-                </p>
+              <div className="flex-1">
+                <p className="font-semibold text-sm text-gray-900">{group.username}</p>
+                <div className="space-y-1">
+                  {group.messages.map((message) => (
+                    <div key={message.id} className="group">
+                      <p className="text-gray-700">{message.content}</p>
+                      <p className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {new Date(message.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
