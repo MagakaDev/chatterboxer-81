@@ -21,8 +21,32 @@ export default function Channel() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const { toast } = useToast();
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    const getUserId = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Verify the user exists in the users table
+        const { data: userData } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', user.id)
+          .single();
+        
+        if (userData) {
+          setUserId(userData.id);
+        } else {
+          toast({
+            title: "Erreur",
+            description: "Votre profil utilisateur n'a pas été trouvé. Veuillez vous reconnecter.",
+            variant: "destructive",
+          });
+        }
+      }
+    };
+
+    getUserId();
     // Fetch initial messages
     const fetchMessages = async () => {
       const { data, error } = await supabase
@@ -73,17 +97,14 @@ export default function Channel() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newMessage.trim()) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!newMessage.trim() || !userId) return;
 
     const { error } = await supabase
       .from('messages')
       .insert({
         content: newMessage,
         channel_id: id,
-        user_id: user.id,
+        user_id: userId,
       });
 
     if (error) {
