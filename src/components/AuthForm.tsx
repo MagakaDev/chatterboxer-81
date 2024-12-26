@@ -34,7 +34,13 @@ export function AuthForm() {
         if (user) {
           const { error: profileError } = await supabase
             .from('users')
-            .insert([{ id: user.id, email, username }]);
+            .insert({
+              id: user.id,
+              email,
+              username,
+              password: '', // We don't store the actual password in this table
+              avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${username}` // Default avatar
+            });
           if (profileError) throw profileError;
         }
         

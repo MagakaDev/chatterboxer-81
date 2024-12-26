@@ -15,7 +15,7 @@ export function Navbar() {
           .from('users')
           .select('username')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
         if (data) {
           setUsername(data.username);
         }
