@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import Channel from "./pages/Channel";
 import { Navbar } from "./components/Navbar";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,16 @@ const App = () => {
                   <Auth />
                 ) : (
                   <Navigate to="/" replace />
+                )
+              }
+            />
+            <Route
+              path="/channel/:id"
+              element={
+                isAuthenticated ? (
+                  <Channel />
+                ) : (
+                  <Navigate to="/auth" replace />
                 )
               }
             />
