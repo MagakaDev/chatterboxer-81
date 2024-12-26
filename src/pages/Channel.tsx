@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Message {
   id: string;
@@ -12,7 +13,7 @@ interface Message {
   user: {
     username: string;
     avatar_url: string;
-  };
+  } | null;
 }
 
 export default function Channel() {
@@ -103,13 +104,17 @@ export default function Channel() {
         {messages.map((message) => (
           <div key={message.id} className="mb-4">
             <div className="flex items-start gap-3">
-              <img
-                src={message.user.avatar_url}
-                alt={message.user.username}
-                className="w-8 h-8 rounded-full"
-              />
+              <Avatar>
+                <AvatarImage 
+                  src={message.user?.avatar_url || '/placeholder.svg'} 
+                  alt={message.user?.username || 'Unknown user'} 
+                />
+                <AvatarFallback>
+                  {message.user?.username?.[0]?.toUpperCase() || '?'}
+                </AvatarFallback>
+              </Avatar>
               <div>
-                <p className="font-semibold">{message.user.username}</p>
+                <p className="font-semibold">{message.user?.username || 'Unknown user'}</p>
                 <p className="text-gray-700">{message.content}</p>
                 <p className="text-xs text-gray-500">
                   {new Date(message.created_at).toLocaleString()}
