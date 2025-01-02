@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useToast } from "@/hooks/use-toast";
+import { MessageList } from "@/components/chat/MessageList";
+import { MessageInput } from "@/components/chat/MessageInput";
 
 interface Message {
   id: string;
@@ -16,29 +15,17 @@ interface Message {
   } | null;
 }
 
-interface GroupedMessage {
-  userId: string;
-  username: string;
-  avatar_url: string;
-  messages: {
-    id: string;
-    content: string;
-    created_at: string;
-  }[];
-}
-
 export default function Channel() {
   const { id } = useParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const { toast } = useToast();
   const [userId, setUserId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const getUserId = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Verify the user exists in the users table
         const { data: userData } = await supabase
           .from('users')
           .select('id')
@@ -58,7 +45,7 @@ export default function Channel() {
     };
 
     getUserId();
-    // Fetch initial messages
+
     const fetchMessages = async () => {
       const { data, error } = await supabase
         .from('messages')
@@ -87,119 +74,76 @@ export default function Channel() {
 
     fetchMessages();
 
-    // Subscribe to new messages
-    const subscription = supabase
-      .channel('messages')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `channel_id=eq.${id}`,
-      }, (payload) => {
-        setMessages(prev => [...prev, payload.new as Message]);
-      })
+    const channel = supabase.channel('messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `channel_id=eq.${id}`,
+        },
+        async (payload) => {
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('username, avatar_url')
+            .eq('id', payload.new.user_id)
+            .single();
+
+          if (userError) {
+            console.error('Error fetching user data:', userError);
+            return;
+          }
+
+          const newMessage = {
+            ...payload.new,
+            user: userData
+          } as Message;
+
+          setMessages(prev => [...prev, newMessage]);
+        }
+      )
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      channel.unsubscribe();
     };
   }, [id, toast]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleSendMessage = async () => {
     if (!newMessage.trim() || !userId) return;
 
-    const { error } = await supabase
-      .from('messages')
-      .insert({
-        content: newMessage,
-        channel_id: id,
-        user_id: userId,
-      });
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          content: newMessage,
+          channel_id: id,
+          user_id: userId,
+        });
 
-    if (error) {
+      if (error) throw error;
+      setNewMessage("");
+    } catch (error: any) {
       toast({
         title: "Erreur",
         description: "Impossible d'envoyer le message",
         variant: "destructive",
       });
-      return;
     }
-
-    setNewMessage("");
   };
 
-  // Group messages by user
-  const groupedMessages = messages.reduce<GroupedMessage[]>((acc, message) => {
-    if (!message.user) return acc;
-
-    const lastGroup = acc[acc.length - 1];
-    
-    if (lastGroup && lastGroup.username === message.user.username) {
-      lastGroup.messages.push({
-        id: message.id,
-        content: message.content,
-        created_at: message.created_at,
-      });
-    } else {
-      acc.push({
-        userId: message.user.username,
-        username: message.user.username,
-        avatar_url: message.user.avatar_url,
-        messages: [{
-          id: message.id,
-          content: message.content,
-          created_at: message.created_at,
-        }]
-      });
-    }
-    
-    return acc;
-  }, []);
-
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="bg-white rounded-lg shadow-sm border p-4 mb-4 h-[600px] overflow-y-auto">
-        {groupedMessages.map((group) => (
-          <div key={`${group.userId}-${group.messages[0].id}`} className="mb-6">
-            <div className="flex items-start gap-3">
-              <Avatar className="mt-1">
-                <AvatarImage 
-                  src={group.avatar_url || '/placeholder.svg'} 
-                  alt={group.username} 
-                />
-                <AvatarFallback>
-                  {group.username[0]?.toUpperCase() || '?'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <p className="font-semibold text-sm text-gray-900">{group.username}</p>
-                <div className="space-y-1">
-                  {group.messages.map((message) => (
-                    <div key={message.id} className="group">
-                      <p className="text-gray-700">{message.content}</p>
-                      <p className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {new Date(message.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
+    <div className="flex flex-col h-[calc(100vh-4rem)] bg-gray-50">
+      <div className="flex-1 overflow-hidden">
+        <MessageList messages={messages} />
       </div>
-      
-      <form onSubmit={handleSendMessage} className="flex gap-2">
-        <Input
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Écrivez votre message..."
-          className="flex-1"
-        />
-        <Button type="submit">Envoyer</Button>
-      </form>
+      <MessageInput
+        value={newMessage}
+        onChange={setNewMessage}
+        onSubmit={handleSendMessage}
+        disabled={!userId}
+      />
     </div>
   );
 }
