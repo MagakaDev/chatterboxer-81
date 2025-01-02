@@ -56,7 +56,10 @@ export default function Channel() {
           id,
           content,
           created_at,
-          user:users(username, avatar_url)
+          user:users (
+            username,
+            avatar_url
+          )
         `)
         .eq('channel_id', id)
         .order('created_at', { ascending: true });
@@ -77,7 +80,6 @@ export default function Channel() {
 
     fetchMessages();
 
-    // Subscribe to new messages
     const channel = supabase.channel(`messages:${id}`)
       .on(
         'postgres_changes',
@@ -88,7 +90,6 @@ export default function Channel() {
           filter: `channel_id=eq.${id}`,
         },
         async (payload) => {
-          // Fetch the user data for the new message
           const { data: userData } = await supabase
             .from('users')
             .select('username, avatar_url')

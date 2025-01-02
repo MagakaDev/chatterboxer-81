@@ -1,6 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { User } from "lucide-react";
 
 interface Message {
   id: string;
@@ -19,8 +20,10 @@ export const MessageGroup = ({ username, avatar_url, messages }: MessageGroupPro
     <div className="flex items-start gap-3 group/message animate-fade-in">
       <div className="w-8 h-8 flex-shrink-0 mt-4">
         <Avatar>
-          <AvatarImage src={avatar_url || '/placeholder.svg'} alt={username} />
-          <AvatarFallback>{username[0]?.toUpperCase() || '?'}</AvatarFallback>
+          <AvatarImage src={avatar_url} alt={username} />
+          <AvatarFallback>
+            <User className="h-4 w-4 text-gray-500" />
+          </AvatarFallback>
         </Avatar>
       </div>
       <div className="flex-1 min-w-0 space-y-1">
