@@ -3,6 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
+import { PlusCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Channel {
   id: string;
@@ -12,6 +23,9 @@ interface Channel {
 
 export default function Index() {
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelDescription, setNewChannelDescription] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -41,7 +55,6 @@ export default function Index() {
         return;
       }
 
-      // Navigate to the channel page
       navigate(`/channel/${channelId}`);
       
       toast({
@@ -57,9 +70,84 @@ export default function Index() {
     }
   };
 
+  const handleCreateChannel = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('channels')
+        .insert([
+          {
+            name: newChannelName,
+            description: newChannelDescription,
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setChannels([...channels, data]);
+      setNewChannelName("");
+      setNewChannelDescription("");
+      setIsDialogOpen(false);
+
+      toast({
+        title: "Succès",
+        description: "Le canal a été créé avec succès",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de créer le canal",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h2 className="text-2xl font-bold mb-6">Canaux disponibles</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Canaux disponibles</h2>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Créer un canal
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Créer un nouveau canal</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nom du canal</Label>
+                <Input
+                  id="name"
+                  value={newChannelName}
+                  onChange={(e) => setNewChannelName(e.target.value)}
+                  placeholder="Entrez le nom du canal"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={newChannelDescription}
+                  onChange={(e) => setNewChannelDescription(e.target.value)}
+                  placeholder="Entrez la description du canal"
+                />
+              </div>
+              <Button 
+                onClick={handleCreateChannel}
+                disabled={!newChannelName || !newChannelDescription}
+                className="w-full"
+              >
+                Créer le canal
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {channels.map((channel) => (
           <div
