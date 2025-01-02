@@ -40,8 +40,14 @@ export const MessageList = ({ messages }: MessageListProps) => {
     if (!message.user) return acc;
 
     const lastGroup = acc[acc.length - 1];
+    const timeDiff = lastGroup 
+      ? new Date(message.created_at).getTime() - new Date(lastGroup.messages[lastGroup.messages.length - 1].created_at).getTime()
+      : Infinity;
     
-    if (lastGroup && lastGroup.username === message.user.username) {
+    // Group messages if they're from the same user and within 5 minutes of each other
+    if (lastGroup && 
+        lastGroup.username === message.user.username && 
+        timeDiff < 5 * 60 * 1000) {
       lastGroup.messages.push({
         id: message.id,
         content: message.content,
@@ -65,7 +71,7 @@ export const MessageList = ({ messages }: MessageListProps) => {
 
   return (
     <ScrollArea ref={scrollRef} className="flex-1 p-4">
-      <div className="space-y-6">
+      <div className="space-y-8">
         {groupedMessages.map((group) => (
           <MessageGroup
             key={`${group.userId}-${group.messages[0].id}`}
