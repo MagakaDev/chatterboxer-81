@@ -90,20 +90,39 @@ export default function Channel() {
           filter: `channel_id=eq.${id}`,
         },
         async (payload) => {
-          const { data: userData } = await supabase
-            .from('users')
-            .select('username, avatar_url')
-            .eq('id', payload.new.user_id)
-            .single();
+          try {
+            const { data: userData } = await supabase
+              .from('users')
+              .select('username, avatar_url')
+              .eq('id', payload.new.user_id)
+              .maybeSingle();
 
-          const newMessage = {
-            id: payload.new.id,
-            content: payload.new.content,
-            created_at: payload.new.created_at,
-            user: userData
-          } as Message;
+            const newMessage = {
+              id: payload.new.id,
+              content: payload.new.content,
+              created_at: payload.new.created_at,
+              user: userData || {
+                username: 'Utilisateur inconnu',
+                avatar_url: ''
+              }
+            } as Message;
 
-          setMessages(prev => [...prev, newMessage]);
+            setMessages(prev => [...prev, newMessage]);
+          } catch (error) {
+            console.error('Error fetching user data:', error);
+            // Still add the message but with default user info
+            const newMessage = {
+              id: payload.new.id,
+              content: payload.new.content,
+              created_at: payload.new.created_at,
+              user: {
+                username: 'Utilisateur inconnu',
+                avatar_url: ''
+              }
+            } as Message;
+            
+            setMessages(prev => [...prev, newMessage]);
+          }
         }
       )
       .subscribe();
