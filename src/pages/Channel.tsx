@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { MessageList } from "@/components/chat/MessageList";
 import { MessageInput } from "@/components/chat/MessageInput";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 interface Message {
   id: string;
@@ -17,6 +19,7 @@ interface Message {
 
 export default function Channel() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -74,7 +77,8 @@ export default function Channel() {
 
     fetchMessages();
 
-    const channel = supabase.channel('messages')
+    // Subscribe to new messages
+    const channel = supabase.channel(`messages:${id}`)
       .on(
         'postgres_changes',
         {
@@ -84,19 +88,17 @@ export default function Channel() {
           filter: `channel_id=eq.${id}`,
         },
         async (payload) => {
-          const { data: userData, error: userError } = await supabase
+          // Fetch the user data for the new message
+          const { data: userData } = await supabase
             .from('users')
             .select('username, avatar_url')
             .eq('id', payload.new.user_id)
             .single();
 
-          if (userError) {
-            console.error('Error fetching user data:', userError);
-            return;
-          }
-
           const newMessage = {
-            ...payload.new,
+            id: payload.new.id,
+            content: payload.new.content,
+            created_at: payload.new.created_at,
             user: userData
           } as Message;
 
@@ -135,6 +137,17 @@ export default function Channel() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] bg-gray-50">
+      <div className="flex items-center gap-2 p-4 border-b bg-white">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/')}
+          className="h-8 w-8"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="font-semibold">Retour aux canaux</h1>
+      </div>
       <div className="flex-1 overflow-hidden">
         <MessageList messages={messages} />
       </div>
