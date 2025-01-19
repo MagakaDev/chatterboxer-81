@@ -35,12 +35,11 @@ export default function Index() {
     const fetchNearbyChannels = async () => {
       if (!userLocation) return;
 
-      const { data, error } = await supabase
-        .rpc('get_channels_within_radius', {
-          user_lat: userLocation.lat,
-          user_lng: userLocation.lng,
-          radius_km: 10
-        });
+      const { data, error } = await supabase.rpc('get_channels_within_radius', {
+        user_lat: userLocation.lat,
+        user_lng: userLocation.lng,
+        radius_km: 10
+      });
 
       if (error) {
         toast({

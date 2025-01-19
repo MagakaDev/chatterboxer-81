@@ -104,7 +104,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_channels_within_radius: {
+        Args: {
+          user_lat: number
+          user_lng: number
+          radius_km: number
+        }
+        Returns: {
+          id: string
+          name: string
+          description: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
@@ -124,7 +135,7 @@ export type Tables<
   TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
     ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
         Database[PublicTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never,
 > = PublicTableNameOrOptions extends { schema: keyof Database }
   ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
       Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
