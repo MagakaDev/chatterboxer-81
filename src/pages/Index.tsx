@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { PlusCircle } from "lucide-react";
 import {
   Dialog,
@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import LocationMap from "@/components/LocationMap";
 
 interface Channel {
   id: string;
@@ -26,22 +27,39 @@ export default function Index() {
   const [newChannelName, setNewChannelName] = useState("");
   const [newChannelDescription, setNewChannelDescription] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchChannels = async () => {
+    const fetchNearbyChannels = async () => {
+      if (!userLocation) return;
+
       const { data, error } = await supabase
-        .from('channels')
-        .select('*');
-      
-      if (!error && data) {
+        .rpc('get_channels_within_radius', {
+          user_lat: userLocation.lat,
+          user_lng: userLocation.lng,
+          radius_km: 10
+        });
+
+      if (error) {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les canaux à proximité",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data) {
         setChannels(data);
       }
     };
 
-    fetchChannels();
-  }, []);
+    if (userLocation) {
+      fetchNearbyChannels();
+    }
+  }, [userLocation, toast]);
 
   const handleJoinChannel = async (channelId: string) => {
     try {
@@ -71,6 +89,15 @@ export default function Index() {
   };
 
   const handleCreateChannel = async () => {
+    if (!userLocation) {
+      toast({
+        title: "Erreur",
+        description: "Votre position est nécessaire pour créer un canal",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('channels')
@@ -78,6 +105,7 @@ export default function Index() {
           {
             name: newChannelName,
             description: newChannelDescription,
+            location: `POINT(${userLocation.lng} ${userLocation.lat})`
           }
         ])
         .select()
@@ -105,8 +133,12 @@ export default function Index() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-8">
+        <LocationMap onLocationSelect={setUserLocation} />
+      </div>
+      
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Canaux disponibles</h2>
+        <h2 className="text-2xl font-bold">Canaux à proximité</h2>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
