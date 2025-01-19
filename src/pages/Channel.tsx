@@ -80,6 +80,7 @@ export default function Channel() {
 
     fetchMessages();
 
+    // Subscribe to new messages
     const channel = supabase.channel(`messages:${id}`)
       .on(
         'postgres_changes',
