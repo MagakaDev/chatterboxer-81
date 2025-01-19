@@ -77,6 +77,7 @@ export type Database = {
           id: string
           password: string
           username: string
+          location: string | null
         }
         Insert: {
           avatar_url: string
@@ -85,6 +86,7 @@ export type Database = {
           id?: string
           password: string
           username: string
+          location?: string | null
         }
         Update: {
           avatar_url?: string
@@ -93,6 +95,7 @@ export type Database = {
           id?: string
           password?: string
           username?: string
+          location?: string | null
         }
         Relationships: []
       }

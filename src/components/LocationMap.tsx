@@ -31,12 +31,21 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
             // Update user's location in Supabase
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-              await supabase
+              const { error } = await supabase
                 .from('users')
                 .update({
                   location: `POINT(${longitude} ${latitude})`
-                })
+                } as { location: string })
                 .eq('id', user.id);
+
+              if (error) {
+                console.error('Error updating location:', error);
+                toast({
+                  title: "Erreur",
+                  description: "Impossible de mettre à jour votre position",
+                  variant: "destructive"
+                });
+              }
             }
 
             // Initialize map with user's location
