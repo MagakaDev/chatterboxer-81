@@ -15,18 +15,21 @@ export type Database = {
           description: string
           id: string
           name: string
+          location: string | null
         }
         Insert: {
           created_at?: string
           description: string
           id?: string
           name: string
+          location?: string | null
         }
         Update: {
           created_at?: string
           description?: string
           id?: string
           name?: string
+          location?: string | null
         }
         Relationships: []
       }
@@ -66,7 +69,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
       users: {

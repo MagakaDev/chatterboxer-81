@@ -35,7 +35,7 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                 .from('users')
                 .update({
                   location: `POINT(${longitude} ${latitude})`
-                } as { location: string })
+                })
                 .eq('id', user.id);
 
               if (error) {
@@ -65,6 +65,12 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                 .setLngLat([longitude, latitude])
                 .addTo(map.current);
 
+              // Add popup to show "You are here"
+              new mapboxgl.Popup()
+                .setLngLat([longitude, latitude])
+                .setHTML('<h3>Vous êtes ici</h3>')
+                .addTo(map.current);
+
               // Notify parent component
               if (onLocationSelect) {
                 onLocationSelect({ lat: latitude, lng: longitude });
@@ -72,13 +78,25 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
             }
           },
           (error) => {
+            console.error('Geolocation error:', error);
             toast({
               title: "Erreur de géolocalisation",
               description: "Impossible d'obtenir votre position. " + error.message,
               variant: "destructive"
             });
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
           }
         );
+      } else {
+        toast({
+          title: "Erreur",
+          description: "La géolocalisation n'est pas supportée par votre navigateur",
+          variant: "destructive"
+        });
       }
     };
 
