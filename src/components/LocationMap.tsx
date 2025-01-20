@@ -35,7 +35,7 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                 .from('users')
                 .update({
                   location: `POINT(${longitude} ${latitude})`
-                })
+                } as { location: string })
                 .eq('id', user.id);
 
               if (error) {
@@ -110,7 +110,7 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
   }, [onLocationSelect, toast]);
 
   return (
-    <div className="w-full h-[400px] rounded-lg overflow-hidden shadow-lg">
+    <div className="w-full h-[500px] rounded-lg overflow-hidden shadow-lg border border-gray-200">
       <div ref={mapContainer} className="w-full h-full" />
     </div>
   );
