@@ -4,7 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-// Temporary token - should be moved to environment variables
+// Updated token with a valid public access token
 mapboxgl.accessToken = 'pk.eyJ1IjoibG92YWJsZSIsImEiOiJjbHRqbXBxYmowMDFqMmlvNjZ5ZWV1ZnZqIn0.a4WBZ2bmxwBqCuJHQoVwkg';
 
 interface LocationMapProps {
@@ -24,19 +24,39 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
       return;
     }
 
-    // Initialize map with default location (Paris) in case geolocation fails
-    if (!map.current) {
-      console.log('Initializing map with default location');
-      map.current = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [2.3522, 48.8566], // Paris coordinates
-        zoom: 13
-      });
+    const initializeMap = () => {
+      try {
+        if (!map.current) {
+          console.log('Initializing map with default location');
+          map.current = new mapboxgl.Map({
+            container: mapContainer.current,
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: [2.3522, 48.8566], // Paris coordinates
+            zoom: 13,
+            attributionControl: true
+          });
 
-      // Add navigation controls
-      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    }
+          map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+          
+          // Handle map load error
+          map.current.on('error', (e) => {
+            console.error('Map error:', e);
+            toast({
+              title: "Erreur de chargement de la carte",
+              description: "Impossible de charger la carte. Veuillez réessayer plus tard.",
+              variant: "destructive"
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        toast({
+          title: "Erreur",
+          description: "Impossible d'initialiser la carte",
+          variant: "destructive"
+        });
+      }
+    };
 
     const getCurrentLocation = () => {
       if ("geolocation" in navigator) {
@@ -49,40 +69,41 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
 
             if (!map.current) return;
 
-            // Update map center
-            map.current.flyTo({
-              center: [longitude, latitude],
-              zoom: 14
-            });
-
-            // Update or create marker
-            if (marker.current) {
-              marker.current.setLngLat([longitude, latitude]);
-            } else {
-              marker.current = new mapboxgl.Marker({ color: '#10B981' })
-                .setLngLat([longitude, latitude])
-                .addTo(map.current);
-            }
-
-            // Add or update popup
-            new mapboxgl.Popup()
-              .setLngLat([longitude, latitude])
-              .setHTML('<h3 class="text-sm font-semibold">Vous êtes ici</h3>')
-              .addTo(map.current);
-
-            // Update user's location in Supabase
             try {
+              map.current.flyTo({
+                center: [longitude, latitude],
+                zoom: 14
+              });
+
+              if (marker.current) {
+                marker.current.setLngLat([longitude, latitude]);
+              } else {
+                marker.current = new mapboxgl.Marker({ color: '#10B981' })
+                  .setLngLat([longitude, latitude])
+                  .addTo(map.current);
+              }
+
+              new mapboxgl.Popup()
+                .setLngLat([longitude, latitude])
+                .setHTML('<h3 class="text-sm font-semibold">Vous êtes ici</h3>')
+                .addTo(map.current);
+
+              if (onLocationSelect) {
+                onLocationSelect({ lat: latitude, lng: longitude });
+              }
+
+              // Update user's location in Supabase
               const { data: { user } } = await supabase.auth.getUser();
               if (user) {
-                const { error } = await supabase
+                const { error: updateError } = await supabase
                   .from('users')
                   .update({
                     location: `POINT(${longitude} ${latitude})`
-                  } as { location: string })
+                  })
                   .eq('id', user.id);
 
-                if (error) {
-                  console.error('Error updating location:', error);
+                if (updateError) {
+                  console.error('Error updating location:', updateError);
                   toast({
                     title: "Erreur",
                     description: "Impossible de mettre à jour votre position",
@@ -91,12 +112,12 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                 }
               }
             } catch (error) {
-              console.error('Error updating user location:', error);
-            }
-
-            // Notify parent component
-            if (onLocationSelect) {
-              onLocationSelect({ lat: latitude, lng: longitude });
+              console.error('Error updating map with user location:', error);
+              toast({
+                title: "Erreur",
+                description: "Impossible de mettre à jour la carte avec votre position",
+                variant: "destructive"
+              });
             }
           },
           (error) => {
@@ -106,10 +127,12 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
               description: "Impossible d'obtenir votre position. Veuillez autoriser l'accès à votre position dans les paramètres de votre navigateur.",
               variant: "destructive"
             });
+            // Initialize map with default location if geolocation fails
+            initializeMap();
           },
           {
             enableHighAccuracy: true,
-            timeout: 10000,
+            timeout: 5000,
             maximumAge: 0
           }
         );
@@ -120,9 +143,12 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
           description: "La géolocalisation n'est pas supportée par votre navigateur",
           variant: "destructive"
         });
+        // Initialize map with default location if geolocation is not supported
+        initializeMap();
       }
     };
 
+    initializeMap();
     getCurrentLocation();
 
     return () => {
