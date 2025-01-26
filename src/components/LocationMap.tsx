@@ -25,7 +25,6 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
       if (!mapContainer.current || !isMounted) return;
 
       try {
-        // Clean up existing map instance if it exists
         if (map.current) {
           map.current.remove();
           map.current = null;
@@ -57,6 +56,31 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
       }
     };
 
+    const handleGeolocationError = (error: GeolocationPositionError) => {
+      console.error('Geolocation error:', error);
+      let errorMessage = "Une erreur est survenue lors de la géolocalisation";
+      
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = "Veuillez autoriser l'accès à votre position dans les paramètres de votre navigateur";
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = "Votre position est actuellement indisponible";
+          break;
+        case error.TIMEOUT:
+          errorMessage = "La demande de géolocalisation a expiré";
+          break;
+      }
+      
+      if (isMounted) {
+        toast({
+          title: "Erreur de géolocalisation",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      }
+    };
+
     const getCurrentLocation = () => {
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
@@ -75,7 +99,6 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                 essential: true
               });
 
-              // Clean up existing marker and popup
               if (marker.current) {
                 marker.current.remove();
               }
@@ -115,6 +138,11 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                   })
                   .eq('id', user.id);
               }
+
+              toast({
+                title: "Succès",
+                description: "Votre position a été mise à jour avec succès",
+              });
             } catch (error) {
               console.error('Error updating map:', error);
               if (isMounted) {
@@ -126,22 +154,19 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
               }
             }
           },
-          (error) => {
-            console.error('Geolocation error:', error);
-            if (isMounted) {
-              toast({
-                title: "Erreur de géolocalisation",
-                description: "Veuillez autoriser l'accès à votre position",
-                variant: "destructive"
-              });
-            }
-          },
+          handleGeolocationError,
           {
             enableHighAccuracy: true,
             timeout: 10000,
             maximumAge: 0
           }
         );
+      } else {
+        toast({
+          title: "Erreur",
+          description: "La géolocalisation n'est pas supportée par votre navigateur",
+          variant: "destructive"
+        });
       }
     };
 
