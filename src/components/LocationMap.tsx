@@ -17,35 +17,32 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
   const { toast } = useToast();
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
+  // Initialize map
   useEffect(() => {
-    if (!mapContainer.current) {
-      console.error('Map container not found');
-      return;
-    }
+    if (!mapContainer.current) return;
 
-    const initializeMap = (center: [number, number] = [2.3522, 48.8566]) => {
+    const initializeMap = async (center: [number, number] = [2.3522, 48.8566]) => {
       try {
-        if (!map.current) {
-          console.log('Initializing map with location:', center);
-          map.current = new mapboxgl.Map({
-            container: mapContainer.current,
-            style: 'mapbox://styles/mapbox/streets-v12',
-            center: center,
-            zoom: 13,
-            attributionControl: true
-          });
+        map.current = new mapboxgl.Map({
+          container: mapContainer.current,
+          style: 'mapbox://styles/mapbox/streets-v12',
+          center: center,
+          zoom: 13
+        });
 
-          map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-          
-          map.current.on('error', (e) => {
-            console.error('Map error:', e);
-            toast({
-              title: "Erreur de chargement de la carte",
-              description: "Impossible de charger la carte. Veuillez réessayer plus tard.",
-              variant: "destructive"
-            });
-          });
-        }
+        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+        // Wait for map to load before getting location
+        map.current.on('load', () => {
+          getCurrentLocation();
+        });
+
+        return () => {
+          if (marker.current) {
+            marker.current.remove();
+          }
+          map.current?.remove();
+        };
       } catch (error) {
         console.error('Error initializing map:', error);
         toast({
@@ -58,17 +55,12 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
 
     const getCurrentLocation = () => {
       if ("geolocation" in navigator) {
-        console.log('Requesting user location...');
         navigator.geolocation.getCurrentPosition(
           async (position) => {
-            console.log('Got user location:', position);
             const { latitude, longitude } = position.coords;
             setUserLocation({ lat: latitude, lng: longitude });
 
-            if (!map.current) {
-              initializeMap([longitude, latitude]);
-              return;
-            }
+            if (!map.current) return;
 
             try {
               map.current.flyTo({
@@ -80,8 +72,11 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
               if (marker.current) {
                 marker.current.remove();
               }
-              
-              marker.current = new mapboxgl.Marker({ color: '#10B981', draggable: true })
+
+              marker.current = new mapboxgl.Marker({
+                color: '#10B981',
+                draggable: true
+              })
                 .setLngLat([longitude, latitude])
                 .addTo(map.current);
 
@@ -92,7 +87,7 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                 }
               });
 
-              const popup = new mapboxgl.Popup({ closeButton: false })
+              new mapboxgl.Popup({ closeButton: false })
                 .setLngLat([longitude, latitude])
                 .setHTML('<h3 class="text-sm font-semibold">Vous êtes ici</h3>')
                 .addTo(map.current);
@@ -103,27 +98,18 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
 
               const { data: { user } } = await supabase.auth.getUser();
               if (user) {
-                const { error: updateError } = await supabase
+                await supabase
                   .from('users')
                   .update({
                     location: `POINT(${longitude} ${latitude})`
                   })
                   .eq('id', user.id);
-
-                if (updateError) {
-                  console.error('Error updating location:', updateError);
-                  toast({
-                    title: "Erreur",
-                    description: "Impossible de mettre à jour votre position",
-                    variant: "destructive"
-                  });
-                }
               }
             } catch (error) {
-              console.error('Error updating map with user location:', error);
+              console.error('Error updating map:', error);
               toast({
                 title: "Erreur",
-                description: "Impossible de mettre à jour la carte avec votre position",
+                description: "Impossible de mettre à jour la carte",
                 variant: "destructive"
               });
             }
@@ -132,10 +118,9 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
             console.error('Geolocation error:', error);
             toast({
               title: "Erreur de géolocalisation",
-              description: "Impossible d'obtenir votre position. Veuillez autoriser l'accès à votre position dans les paramètres de votre navigateur.",
+              description: "Veuillez autoriser l'accès à votre position",
               variant: "destructive"
             });
-            initializeMap();
           },
           {
             enableHighAccuracy: true,
@@ -143,20 +128,8 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
             maximumAge: 0
           }
         );
-      } else {
-        console.error('Geolocation not supported');
-        toast({
-          title: "Erreur",
-          description: "La géolocalisation n'est pas supportée par votre navigateur",
-          variant: "destructive"
-        });
-        initializeMap();
       }
     };
-
-    map.current?.on('load', () => {
-      getCurrentLocation();
-    });
 
     initializeMap();
 
