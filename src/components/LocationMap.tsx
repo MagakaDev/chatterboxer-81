@@ -24,21 +24,20 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
       return;
     }
 
-    const initializeMap = () => {
+    const initializeMap = (center: [number, number] = [2.3522, 48.8566]) => {
       try {
         if (!map.current) {
-          console.log('Initializing map with default location');
+          console.log('Initializing map with location:', center);
           map.current = new mapboxgl.Map({
             container: mapContainer.current,
             style: 'mapbox://styles/mapbox/streets-v12',
-            center: [2.3522, 48.8566], // Paris coordinates
+            center: center,
             zoom: 13,
             attributionControl: true
           });
 
           map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
           
-          // Handle map load error
           map.current.on('error', (e) => {
             console.error('Map error:', e);
             toast({
@@ -67,23 +66,27 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
             const { latitude, longitude } = position.coords;
             setUserLocation({ lat: latitude, lng: longitude });
 
-            if (!map.current) return;
+            if (!map.current) {
+              initializeMap([longitude, latitude]);
+              return;
+            }
 
             try {
               map.current.flyTo({
                 center: [longitude, latitude],
-                zoom: 14
+                zoom: 14,
+                essential: true
               });
 
               if (marker.current) {
-                marker.current.setLngLat([longitude, latitude]);
-              } else {
-                marker.current = new mapboxgl.Marker({ color: '#10B981' })
-                  .setLngLat([longitude, latitude])
-                  .addTo(map.current);
+                marker.current.remove();
               }
+              
+              marker.current = new mapboxgl.Marker({ color: '#10B981' })
+                .setLngLat([longitude, latitude])
+                .addTo(map.current);
 
-              new mapboxgl.Popup()
+              const popup = new mapboxgl.Popup({ closeButton: false })
                 .setLngLat([longitude, latitude])
                 .setHTML('<h3 class="text-sm font-semibold">Vous êtes ici</h3>')
                 .addTo(map.current);
@@ -92,7 +95,6 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                 onLocationSelect({ lat: latitude, lng: longitude });
               }
 
-              // Update user's location in Supabase
               const { data: { user } } = await supabase.auth.getUser();
               if (user) {
                 const { error: updateError } = await supabase
@@ -127,12 +129,11 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
               description: "Impossible d'obtenir votre position. Veuillez autoriser l'accès à votre position dans les paramètres de votre navigateur.",
               variant: "destructive"
             });
-            // Initialize map with default location if geolocation fails
             initializeMap();
           },
           {
             enableHighAccuracy: true,
-            timeout: 5000,
+            timeout: 10000,
             maximumAge: 0
           }
         );
@@ -143,7 +144,6 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
           description: "La géolocalisation n'est pas supportée par votre navigateur",
           variant: "destructive"
         });
-        // Initialize map with default location if geolocation is not supported
         initializeMap();
       }
     };
@@ -152,6 +152,9 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
     getCurrentLocation();
 
     return () => {
+      if (marker.current) {
+        marker.current.remove();
+      }
       if (map.current) {
         map.current.remove();
       }
@@ -159,8 +162,8 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
   }, [onLocationSelect, toast]);
 
   return (
-    <div className="relative w-full h-[500px] rounded-lg overflow-hidden">
-      <div ref={mapContainer} className="absolute inset-0 border border-gray-200 shadow-lg" />
+    <div className="relative w-full h-[500px] overflow-hidden rounded-lg border border-border shadow-sm">
+      <div ref={mapContainer} className="absolute inset-0" />
     </div>
   );
 };
