@@ -17,12 +17,29 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
   const popup = useRef<mapboxgl.Popup | null>(null);
   const { toast } = useToast();
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    let isMounted = true;
+    return () => {
+      mountedRef.current = false;
+      if (marker.current) {
+        marker.current.remove();
+        marker.current = null;
+      }
+      if (popup.current) {
+        popup.current.remove();
+        popup.current = null;
+      }
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
+    };
+  }, []);
 
+  useEffect(() => {
     const initializeMap = async (center: [number, number] = [2.3522, 48.8566]) => {
-      if (!mapContainer.current || !isMounted) return;
+      if (!mapContainer.current || !mountedRef.current) return;
 
       try {
         if (map.current) {
@@ -40,13 +57,13 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
         map.current.on('load', () => {
-          if (isMounted) {
+          if (mountedRef.current) {
             getCurrentLocation();
           }
         });
       } catch (error) {
         console.error('Error initializing map:', error);
-        if (isMounted) {
+        if (mountedRef.current) {
           toast({
             title: "Erreur",
             description: "Impossible d'initialiser la carte",
@@ -72,7 +89,7 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
           break;
       }
       
-      if (isMounted) {
+      if (mountedRef.current) {
         toast({
           title: "Erreur de géolocalisation",
           description: errorMessage,
@@ -85,7 +102,7 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
-            if (!isMounted) return;
+            if (!mountedRef.current) return;
 
             const { latitude, longitude } = position.coords;
             setUserLocation({ lat: latitude, lng: longitude });
@@ -115,7 +132,7 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
 
               marker.current.on('dragend', () => {
                 const lngLat = marker.current?.getLngLat();
-                if (lngLat && onLocationSelect && isMounted) {
+                if (lngLat && onLocationSelect && mountedRef.current) {
                   onLocationSelect({ lat: lngLat.lat, lng: lngLat.lng });
                 }
               });
@@ -125,12 +142,12 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                 .setHTML('<h3 class="text-sm font-semibold">Vous êtes ici</h3>')
                 .addTo(map.current);
 
-              if (onLocationSelect && isMounted) {
+              if (onLocationSelect && mountedRef.current) {
                 onLocationSelect({ lat: latitude, lng: longitude });
               }
 
               const { data: { user } } = await supabase.auth.getUser();
-              if (user && isMounted) {
+              if (user && mountedRef.current) {
                 await supabase
                   .from('users')
                   .update({
@@ -139,13 +156,15 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                   .eq('id', user.id);
               }
 
-              toast({
-                title: "Succès",
-                description: "Votre position a été mise à jour avec succès",
-              });
+              if (mountedRef.current) {
+                toast({
+                  title: "Succès",
+                  description: "Votre position a été mise à jour avec succès",
+                });
+              }
             } catch (error) {
               console.error('Error updating map:', error);
-              if (isMounted) {
+              if (mountedRef.current) {
                 toast({
                   title: "Erreur",
                   description: "Impossible de mettre à jour la carte",
@@ -171,22 +190,6 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
     };
 
     initializeMap();
-
-    return () => {
-      isMounted = false;
-      if (marker.current) {
-        marker.current.remove();
-        marker.current = null;
-      }
-      if (popup.current) {
-        popup.current.remove();
-        popup.current = null;
-      }
-      if (map.current) {
-        map.current.remove();
-        map.current = null;
-      }
-    };
   }, [onLocationSelect, toast]);
 
   return (
