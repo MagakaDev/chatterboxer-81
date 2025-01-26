@@ -14,15 +14,23 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const marker = useRef<mapboxgl.Marker | null>(null);
+  const popup = useRef<mapboxgl.Popup | null>(null);
   const { toast } = useToast();
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Initialize map
   useEffect(() => {
-    if (!mapContainer.current) return;
+    let isMounted = true;
 
     const initializeMap = async (center: [number, number] = [2.3522, 48.8566]) => {
+      if (!mapContainer.current || !isMounted) return;
+
       try {
+        // Clean up existing map instance if it exists
+        if (map.current) {
+          map.current.remove();
+          map.current = null;
+        }
+
         map.current = new mapboxgl.Map({
           container: mapContainer.current,
           style: 'mapbox://styles/mapbox/streets-v12',
@@ -32,24 +40,20 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-        // Wait for map to load before getting location
         map.current.on('load', () => {
-          getCurrentLocation();
-        });
-
-        return () => {
-          if (marker.current) {
-            marker.current.remove();
+          if (isMounted) {
+            getCurrentLocation();
           }
-          map.current?.remove();
-        };
+        });
       } catch (error) {
         console.error('Error initializing map:', error);
-        toast({
-          title: "Erreur",
-          description: "Impossible d'initialiser la carte",
-          variant: "destructive"
-        });
+        if (isMounted) {
+          toast({
+            title: "Erreur",
+            description: "Impossible d'initialiser la carte",
+            variant: "destructive"
+          });
+        }
       }
     };
 
@@ -57,6 +61,8 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
+            if (!isMounted) return;
+
             const { latitude, longitude } = position.coords;
             setUserLocation({ lat: latitude, lng: longitude });
 
@@ -69,8 +75,12 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                 essential: true
               });
 
+              // Clean up existing marker and popup
               if (marker.current) {
                 marker.current.remove();
+              }
+              if (popup.current) {
+                popup.current.remove();
               }
 
               marker.current = new mapboxgl.Marker({
@@ -82,22 +92,22 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
 
               marker.current.on('dragend', () => {
                 const lngLat = marker.current?.getLngLat();
-                if (lngLat && onLocationSelect) {
+                if (lngLat && onLocationSelect && isMounted) {
                   onLocationSelect({ lat: lngLat.lat, lng: lngLat.lng });
                 }
               });
 
-              new mapboxgl.Popup({ closeButton: false })
+              popup.current = new mapboxgl.Popup({ closeButton: false })
                 .setLngLat([longitude, latitude])
                 .setHTML('<h3 class="text-sm font-semibold">Vous êtes ici</h3>')
                 .addTo(map.current);
 
-              if (onLocationSelect) {
+              if (onLocationSelect && isMounted) {
                 onLocationSelect({ lat: latitude, lng: longitude });
               }
 
               const { data: { user } } = await supabase.auth.getUser();
-              if (user) {
+              if (user && isMounted) {
                 await supabase
                   .from('users')
                   .update({
@@ -107,20 +117,24 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
               }
             } catch (error) {
               console.error('Error updating map:', error);
-              toast({
-                title: "Erreur",
-                description: "Impossible de mettre à jour la carte",
-                variant: "destructive"
-              });
+              if (isMounted) {
+                toast({
+                  title: "Erreur",
+                  description: "Impossible de mettre à jour la carte",
+                  variant: "destructive"
+                });
+              }
             }
           },
           (error) => {
             console.error('Geolocation error:', error);
-            toast({
-              title: "Erreur de géolocalisation",
-              description: "Veuillez autoriser l'accès à votre position",
-              variant: "destructive"
-            });
+            if (isMounted) {
+              toast({
+                title: "Erreur de géolocalisation",
+                description: "Veuillez autoriser l'accès à votre position",
+                variant: "destructive"
+              });
+            }
           },
           {
             enableHighAccuracy: true,
@@ -134,11 +148,18 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
     initializeMap();
 
     return () => {
+      isMounted = false;
       if (marker.current) {
         marker.current.remove();
+        marker.current = null;
+      }
+      if (popup.current) {
+        popup.current.remove();
+        popup.current = null;
       }
       if (map.current) {
         map.current.remove();
+        map.current = null;
       }
     };
   }, [onLocationSelect, toast]);
