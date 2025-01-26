@@ -4,8 +4,8 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-// Updated token with a valid public access token
-mapboxgl.accessToken = 'pk.eyJ1IjoibG92YWJsZSIsImEiOiJjbHRqbXBxYmowMDFqMmlvNjZ5ZWV1ZnZqIn0.a4WBZ2bmxwBqCuJHQoVwkg';
+// Updated token with the new valid public access token
+mapboxgl.accessToken = 'pk.eyJ1IjoiaG9jaW5lbWFnIiwiYSI6ImNtNmN3NG0wdDBvYzAybXNvYTI2MTgxZngifQ.VZcZH5qPmzy3YlzrPdii6w';
 
 interface LocationMapProps {
   onLocationSelect?: (location: { lat: number; lng: number }) => void;
