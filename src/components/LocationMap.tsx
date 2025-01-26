@@ -4,7 +4,6 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-// Updated token with the new valid public access token
 mapboxgl.accessToken = 'pk.eyJ1IjoiaG9jaW5lbWFnIiwiYSI6ImNtNmN3NG0wdDBvYzAybXNvYTI2MTgxZngifQ.VZcZH5qPmzy3YlzrPdii6w';
 
 interface LocationMapProps {
@@ -82,9 +81,16 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                 marker.current.remove();
               }
               
-              marker.current = new mapboxgl.Marker({ color: '#10B981' })
+              marker.current = new mapboxgl.Marker({ color: '#10B981', draggable: true })
                 .setLngLat([longitude, latitude])
                 .addTo(map.current);
+
+              marker.current.on('dragend', () => {
+                const lngLat = marker.current?.getLngLat();
+                if (lngLat && onLocationSelect) {
+                  onLocationSelect({ lat: lngLat.lat, lng: lngLat.lng });
+                }
+              });
 
               const popup = new mapboxgl.Popup({ closeButton: false })
                 .setLngLat([longitude, latitude])
@@ -148,8 +154,11 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
       }
     };
 
+    map.current?.on('load', () => {
+      getCurrentLocation();
+    });
+
     initializeMap();
-    getCurrentLocation();
 
     return () => {
       if (marker.current) {
