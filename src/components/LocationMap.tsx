@@ -19,20 +19,18 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const mountedRef = useRef(true);
 
+  // Cleanup effect
   useEffect(() => {
     return () => {
       mountedRef.current = false;
       if (marker.current) {
         marker.current.remove();
-        marker.current = null;
       }
       if (popup.current) {
         popup.current.remove();
-        popup.current = null;
       }
       if (map.current) {
         map.current.remove();
-        map.current = null;
       }
     };
   }, []);
@@ -44,7 +42,6 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
       try {
         if (map.current) {
           map.current.remove();
-          map.current = null;
         }
 
         map.current = new mapboxgl.Map({
@@ -102,12 +99,10 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
-            if (!mountedRef.current) return;
+            if (!mountedRef.current || !map.current) return;
 
             const { latitude, longitude } = position.coords;
             setUserLocation({ lat: latitude, lng: longitude });
-
-            if (!map.current) return;
 
             try {
               map.current.flyTo({
@@ -131,8 +126,9 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                 .addTo(map.current);
 
               marker.current.on('dragend', () => {
+                if (!mountedRef.current) return;
                 const lngLat = marker.current?.getLngLat();
-                if (lngLat && onLocationSelect && mountedRef.current) {
+                if (lngLat && onLocationSelect) {
                   onLocationSelect({ lat: lngLat.lat, lng: lngLat.lng });
                 }
               });
@@ -142,7 +138,7 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                 .setHTML('<h3 class="text-sm font-semibold">Vous êtes ici</h3>')
                 .addTo(map.current);
 
-              if (onLocationSelect && mountedRef.current) {
+              if (onLocationSelect) {
                 onLocationSelect({ lat: latitude, lng: longitude });
               }
 
@@ -154,9 +150,7 @@ const LocationMap = ({ onLocationSelect }: LocationMapProps) => {
                     location: `POINT(${longitude} ${latitude})`
                   })
                   .eq('id', user.id);
-              }
 
-              if (mountedRef.current) {
                 toast({
                   title: "Succès",
                   description: "Votre position a été mise à jour avec succès",
